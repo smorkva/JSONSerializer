@@ -1,18 +1,17 @@
 ﻿using System;
 using System.Collections;
 
-namespace prg
+namespace SerializerJSON
 {
-    class JSONSerializer
+    public class Serializer
     {
-        public string parseType(object obj, int depth) {
-            if (obj == null)
+        private string parseType(object _object) {
+            if (_object == null)
                 return "";
-            string res = "";
-            string prefix = "".PadLeft(depth, '\t');
+            string result = "";
             string fields = "";
 
-            var currType = obj.GetType();
+            var currType = _object.GetType();
 
             if (currType == typeof(int) ||
                 currType == typeof(string) ||
@@ -23,72 +22,76 @@ namespace prg
                 currType == typeof(UInt64) ||
                 currType == typeof(System.DateTime))
             {
-                res += prefix + currType.Name + ": \"" + obj + "\",\r\n";
+                result += "\"" + _object + "\"";
             }
             else if (currType.IsEnum)
             {
                 Array enumValues = System.Enum.GetValues(currType);
-                res += prefix + currType.Name + ": [";
+                result += currType.Name + ":[";
                 for (var i = 0; i < enumValues.Length; i++)
                 {
-                    res += enumValues.GetValue(i).ToString();
+                    result += enumValues.GetValue(i).ToString();
                     if (i < enumValues.Length - 1)
-                        res += ',';
+                        result += ',';
                 }
-                res += "],\r\n";
+                result += "]";
 
             }
             else if (currType.IsGenericParameter) {
               
             }
             else if (currType.IsGenericType) {
-                if (obj is IEnumerable)
+                if (_object is IEnumerable)
                 {
-                    foreach (object o in (obj as IEnumerable))
+                    var enumerable = (_object as IEnumerable);
+                    foreach (object o in enumerable)
                     {
-                        fields += this.parseType(o, depth + 1);
+                        fields += this.parseType(o) + ",";
                     }
-                    res += prefix + currType.Name + ": {\r\n" + fields + prefix + "},\r\n";
+                    fields = fields.Remove(fields.Length - 1);
+                    result += "{" + fields + "}";
                 }
                 else {
                     var key = currType.GetProperty("Key")
-                        .GetValue(obj, null);
+                        .GetValue(_object, null);
                     object o = currType.GetProperty("Value")
-                        .GetValue(obj, null);
-                    res += prefix + key + ": {\r\n" + this.parseType(o, depth + 1) + prefix + "},\r\n";
+                        .GetValue(_object, null);
+                    result += key + ":{" + this.parseType(o) + "}";
                 }
                 
             }
             else if (currType == typeof(ArrayList))
             {
-                var aList = obj as ArrayList;
-
+                var aList = _object as ArrayList;
+                var i = 0;
                 foreach (var item in aList)
                 {
-                    fields += this.parseType(item, depth + 1);
+                    fields += i++.ToString() + ":{" + this.parseType(item) + "},";
                 }
-                res += prefix + currType.Name + ": {\r\n" + fields + prefix + "},\r\n";
+                fields = fields.Remove(fields.Length - 1);
+                result += "{" + fields + "}";
             }
             else
             {
                 foreach (var field in currType.GetFields())
                 {
-                    fields += this.parseType(field.GetValue(obj), depth + 1);
+                    fields += field.Name + ":" + this.parseType(field.GetValue(_object)) + ",";
                 }
-                res += prefix + currType.Name + ": {\r\n" + fields + prefix + "},\r\n";
+                fields = fields.Remove(fields.Length - 1);
+                result += "{" + fields + "}";
             }
             
             
-            return res;
+            return result;
         }
-        public string serialize(object obj) {
+        public string Serialize(object obj) {
             if (obj == null) {
                 return "{}";
             }
             var type = obj.GetType();
 
-            string fields = this.parseType(obj, 1);
-            return "{" + string.Format("\r\n\tname:{0}, \r\n{1}", type.Name, fields) + "}";
+            string fields = this.parseType(obj);
+            return "{" + type.Name + ":" + fields + "}";
         }
     }
 }
